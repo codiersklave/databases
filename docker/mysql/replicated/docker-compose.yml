@@ -1,0 +1,61 @@
+services:
+  mysql_primary:
+    container_name: mysql_primary
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PORT: 3306
+      MYSQL_USER: "${DATABASE_USER}"
+      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
+      MYSQL_DATABASE: "${DATABASE_NAME}"
+      MYSQL_LOWER_CASE_TABLE_NAMES: 0
+    restart: 'no'
+    ports:
+      - "${PRIMARY_PORT}:3306"
+    volumes:
+      - ./primary/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf
+      - ./primary/data:/var/lib/mysql
+      - ./scripts:/var/lib/files
+    networks:
+      - overlay
+  
+  mysql_replica1:
+    container_name: mysql_replica1
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PORT: 3306
+      MYSQL_USER: "${DATABASE_USER}"
+      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
+      MYSQL_DATABASE: "${DATABASE_NAME}"
+      MYSQL_LOWER_CASE_TABLE_NAMES: 0
+    restart: 'no'
+    ports:
+      - "${REPLICA1_PORT}:3306"
+    volumes:
+      - ./replica1/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf
+      - ./replica1/data:/var/lib/mysql
+    networks:
+      - overlay
+
+  mysql_replica2:
+    container_name: mysql_replica2
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PORT: 3306
+      MYSQL_USER: "${DATABASE_USER}"
+      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
+      MYSQL_DATABASE: "${DATABASE_NAME}"
+      MYSQL_LOWER_CASE_TABLE_NAMES: 0
+    restart: 'no'
+    ports:
+      - "${REPLICA2_PORT}:3306"
+    volumes:
+      - ./replica2/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf
+      - ./replica2/data:/var/lib/mysql
+    networks:
+      - overlay
+
+networks:
+  overlay:

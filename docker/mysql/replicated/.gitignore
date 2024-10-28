@@ -1,0 +1,5 @@
+.DS_Store
+.env
+./primary/data/*
+./replica1/data/*
+./replica2/data/*
