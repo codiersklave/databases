@@ -51,11 +51,11 @@ docker exec mysql_replica2 sh -c "$start_replica2_cmd"
 
 docker exec mysql_replica2 sh -c "export MYSQL_PWD=root; mysql -u root -e 'SHOW SLAVE STATUS \G'"
 
-docker exec mysql_primary sh -c 'export MYSQL_PWD=root; mysql -u root < "/var/lib/files/init.sql";'
+# docker exec mysql_primary sh -c 'export MYSQL_PWD=root; mysql -u root < "/var/lib/files/init.sql";'
 
-#docker exec mysql_primary sh -c '
-#  export MYSQL_PWD=root;
-#  for sql_file in /var/lib/files/*.sql; do
-#    mysql -u root < "$sql_file";
-#  done
-#'
+docker exec mysql_primary sh -c '
+  export MYSQL_PWD=root;
+  for sql_file in /var/lib/files/*.sql; do
+    mysql -u root < "$sql_file";
+  done
+'

@@ -3,10 +3,9 @@ services:
     container_name: mysql_primary
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_PORT: 3306
-      MYSQL_USER: "${DATABASE_USER}"
-      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${PRIMARY_ROOT_PASSWORD}"
+      MYSQL_USER: "${PRIMARY_DB_USER}"
+      MYSQL_PASSWORD: "${PRIMARY_DB_PASS}"
       MYSQL_DATABASE: "${DATABASE_NAME}"
       MYSQL_LOWER_CASE_TABLE_NAMES: 0
     restart: 'no'
@@ -23,10 +22,9 @@ services:
     container_name: mysql_replica1
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_PORT: 3306
-      MYSQL_USER: "${DATABASE_USER}"
-      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${REPLICA1_ROOT_PASSWORD}"
+      MYSQL_USER: "${REPLICA1_DB_USER}"
+      MYSQL_PASSWORD: "${REPLICA1_DB_PASS}"
       MYSQL_DATABASE: "${DATABASE_NAME}"
       MYSQL_LOWER_CASE_TABLE_NAMES: 0
     restart: 'no'
@@ -42,10 +40,9 @@ services:
     container_name: mysql_replica2
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_PORT: 3306
-      MYSQL_USER: "${DATABASE_USER}"
-      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${REPLICA2_ROOT_PASSWORD}"
+      MYSQL_USER: "${REPLICA2_DB_USER}"
+      MYSQL_PASSWORD: "${REPLICA2_DB_PASS}"
       MYSQL_DATABASE: "${DATABASE_NAME}"
       MYSQL_LOWER_CASE_TABLE_NAMES: 0
     restart: 'no'
