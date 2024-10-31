@@ -1,14 +1,11 @@
--- Drop the schema if it exists and create a new schema named `precmet`. Set character set and collation.
 drop schema if exists `precmet`;
-create schema `precmet` default charset=utf8mb4 collate=utf8mb4_general_ci;
-use `precmet`;
+drop schema if exists `metalwise`;
+create schema `metalwise` default charset=utf8mb4 collate=utf8mb4_general_ci;
+use `metalwise`;
 
--- Set character set for client-server interaction
 set names 'utf8mb4';
--- Disable foreign key checks before modifying the schema
 set foreign_key_checks = 0;
 
--- Create the `price` table to store the price information of products
 create table `price` (
     `id` int unsigned not null auto_increment, -- Primary key
     `_v` int unsigned not null default 1, -- Version column for optimistic locking
@@ -26,7 +23,6 @@ create table `price` (
     foreign key (`product_id`) references `product` (`id`)
 ) engine=innodb;
 
--- Create the `_price` table to store historical versions of price records
 create table `_price` (
     `id` int unsigned not null, -- Price id
     `_v` int unsigned not null, -- Version number
@@ -44,7 +40,6 @@ create table `_price` (
     foreign key (`id`) references `price` (`id`) on delete cascade
 ) engine=innodb;
 
--- Create the `product` table to store product information
 create table `product` (
     `id` int unsigned not null auto_increment, -- Primary key
     `_v` int unsigned not null default 1, -- Version column for optimistic locking
@@ -62,7 +57,6 @@ create table `product` (
     foreign key (`parent_id`) references `product` (`id`)
 ) engine=innodb;
 
--- Create the `_product` table to store historical versions of product records
 create table `_product` (
     `id` int unsigned not null, -- Product id
     `_v` int unsigned not null, -- Version number
@@ -80,7 +74,6 @@ create table `_product` (
     foreign key (`id`) references `product` (`id`) on delete cascade
 ) engine=innodb;
 
--- Create the `purchase` table to store information about purchases
 create table `purchase` (
     `id` int unsigned not null auto_increment, -- Primary key
     `_v` int unsigned not null default 1, -- Version column for optimistic locking
@@ -100,7 +93,6 @@ create table `purchase` (
     foreign key (`product_id`) references `product` (`id`)
 ) engine=innodb;
 
--- Create the `_purchase` table to store historical versions of purchase records
 create table `_purchase` (
     `id` int unsigned not null, -- Purchase id
     `_v` int unsigned not null, -- Version number
@@ -120,7 +112,6 @@ create table `_purchase` (
     foreign key (`id`) references `purchase` (`id`) on delete cascade
 ) engine=innodb;
 
--- Change the delimiter to `//` to handle triggers with multiple statements.
 delimiter //
 
 -- Trigger to increment version number before updating `price`
@@ -195,14 +186,13 @@ create trigger `purchase_after_delete` after delete on `purchase` for each row b
     set @allow_deletion = false;
 end //
 
--- Reset delimiter to default `;`
 delimiter ;
 
--- Enable foreign key checks after schema modifications
 set foreign_key_checks = 1;
 
+
 -- Create a view to calculate average prices for non-root products
-create view `avg_prices_non_root_products` as
+create view `derived_products_avg_prices_paid` as
 with recursive product_hierarchy as (
     select
         id as product_id,
@@ -246,19 +236,17 @@ where
 group by
    p.product_id, pr.multiplier, ph.root_parent_id, ph.root_parent_name;
 
--- Create a view to calculate average prices for root products
-create view `avg_prices_root_products` as
+create view `base_products_avg_prices_paid` as
 select
     root_parent_id,
     root_parent_name,
     round(sum(total_product_price_in_cents) / sum(root_product_quantity)) as root_average_price_in_cents
 from
-    avg_prices_non_root_products
+    derived_products_avg_prices_paid
 group by 
     root_parent_id, root_parent_name;
 
--- Create a view to show current values and average prices difference for root products
-CREATE VIEW `current_values_root_products` AS
+CREATE VIEW `base_products_current_values` AS
 WITH latest_prices AS (
     SELECT p1.product_id, 
            p1.price_in_cents, 
@@ -278,10 +266,23 @@ SELECT latest.product_id,
        avg_price.root_average_price_in_cents,
        (latest.price_in_cents - avg_price.root_average_price_in_cents) AS price_difference_in_cents
 FROM latest_prices latest
-JOIN avg_prices_root_products avg_price ON latest.product_id = avg_price.root_parent_id;
+JOIN base_products_avg_prices_paid avg_price ON latest.product_id = avg_price.root_parent_id;
 
--- Create a view to show current values and average prices difference for non-root products
-CREATE VIEW `current_values_non_root_products` AS
+create view `base_products_current_difference` as
+select
+    cvrp.product_id,
+    cvrp.price_difference_in_cents,
+    sum(apnrp.root_product_quantity),
+    round(cvrp.price_difference_in_cents * sum(apnrp.root_product_quantity)) as `total_difference`
+from
+    base_products_current_values as cvrp
+left join
+    derived_products_avg_prices_paid as apnrp on apnrp.root_parent_id = cvrp.product_id 
+group by 
+    cvrp.product_id,
+    cvrp.price_difference_in_cents;
+
+CREATE VIEW `derived_products_current_values` AS
 WITH latest_prices AS (
     SELECT p1.product_id, 
            p1.price_in_cents, 
@@ -301,4 +302,38 @@ SELECT latest.product_id,
        avg_price.average_price_in_cents,
        (latest.price_in_cents - avg_price.average_price_in_cents) AS price_difference_in_cents
 FROM latest_prices latest
-JOIN avg_prices_non_root_products avg_price ON latest.product_id = avg_price.product_id;
+JOIN derived_products_avg_prices_paid avg_price ON latest.product_id = avg_price.product_id;
+
+create view `derived_products_current_difference` as
+SELECT
+    cvnrp.product_id,
+    cvnrp.price_difference_in_cents,
+    sum(apnrp.total_quantity) as total_quantity,
+    round(cvnrp.price_difference_in_cents * sum(apnrp.total_quantity)) as total_difference
+FROM
+    derived_products_current_values as cvnrp
+LEFT JOIN
+    derived_products_avg_prices_paid as apnrp on apnrp.product_id = cvnrp.product_id
+GROUP BY 
+    cvnrp.product_id,
+    cvnrp.price_difference_in_cents;
+
+create view `base_products_current_total_difference` as
+select sum(`total_difference`) as `total_difference` from base_products_current_difference;
+
+create view `derived_products_current_total_difference` as
+select sum(`total_difference`) as `total_difference` from derived_products_current_difference;
+
+
+create view `current_total_differences` as
+select
+    'Non-Root Products' as `name`,
+    `total_difference`
+from
+    `derived_products_current_total_difference`
+union
+select
+    'Root Products' as `name`,
+    `total_difference`
+from
+    `base_products_current_total_difference`;
